@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Q点的温度漂移引起非线性失真 — 动态工作点轨迹图解</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    background: #FDF6F0;
+    font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+    margin: 0; padding: 20px;
+    display: flex; justify-content: center;
+  }
+  .card {
+    background: #fff; border-radius: 28px;
+    box-shadow: 0 20px 50px rgba(190,160,150,0.18);
+    padding: 26px 30px; max-width: 1400px; width: 100%;
+  }
+  h1 { font-size: 1.75rem; color: #5C4A42; margin: 0 0 6px; }
+  h1 span {
+    background: #FFB3BA; color: #fff; font-size: 0.9rem;
+    padding: 4px 12px; border-radius: 30px; vertical-align: middle;
+  }
+  .subhead {
+    color: #7A6A62; background: #FFF4EC;
+    border-left: 4px solid #FFB3BA; border-radius: 0 12px 12px 0;
+    padding: 10px 18px; margin: 0 0 18px; font-size: 1rem;
+    line-height: 1.7;
+  }
+  .subhead b.hl { color: #E07A8B; }
+  .subhead b.hl2 { color: #6BA8E0; }
+  .subhead b.hl3 { color: #B8892A; }
+  .layout { display: flex; flex-wrap: wrap; gap: 22px; }
+  .left  { flex: 2 1 700px; min-width: 600px; }
+  .right { flex: 1 1 360px; min-width: 340px; }
+
+  .panel {
+    background: #fff; border: 1px solid #F2E4DC;
+    border-radius: 20px; padding: 14px;
+    box-shadow: 0 4px 14px rgba(190,160,150,0.08);
+    margin-bottom: 16px;
+  }
+  canvas { display: block; width: 100%; height: auto; border-radius: 12px; }
+
+  .wave-panel { padding: 10px 14px; }
+  .wave-title {
+    font-weight: 600; color: #5C4A42; font-size: 1rem;
+    margin-bottom: 6px; display: flex; justify-content: space-between;
+    align-items: center;
+  }
+  .wave-title .tag {
+    font-size: 0.82rem; padding: 2px 10px; border-radius: 20px;
+    background: #FFF4EC; color: #A8856A;
+  }
+
+  .slider-label {
+    display: flex; justify-content: space-between;
+    font-weight: 600; color: #5C4A42; font-size: 1.02rem;
+    align-items: center;
+  }
+  .slider-label .val {
+    background: #FFC8A2; color: #5C4A42;
+    padding: 4px 16px; border-radius: 20px; font-size: 0.98rem;
+    font-weight: 700;
+  }
+  .slider-label .val.hot { background: #FFB3BA; color: #fff; }
+  .slider-label .val.cold { background: #B5D8FF; color: #33567A; }
+  input[type=range] {
+    width: 100%; margin-top: 10px; accent-color: #FFB3BA;
+  }
+  .scale {
+    display: flex; justify-content: space-between;
+    font-size: 0.82rem; color: #A8958A; margin-top: 2px;
+  }
+
+  .temp-bar {
+    height: 12px; border-radius: 6px; margin: 8px 0 4px;
+    background: linear-gradient(to right, #B5D8FF, #D4F0F0, #FFF4C2, #FFDAC1, #FFB3BA);
+    border: 1px solid #F0DDD4;
+  }
+
+  .status-box {
+    background: #FFFCF9; border: 1px solid #F2E4DC;
+    border-radius: 16px; padding: 12px 16px; font-size: 0.95rem;
+  }
+  .status-row {
+    display: flex; justify-content: space-between; margin: 5px 0;
+    color: #5C4A42;
+  }
+  .status-row b { color: #A8856A; }
+  .badge {
+    display: inline-block; padding: 3px 12px; border-radius: 20px;
+    color: #fff; font-size: 0.84rem; font-weight: 600;
+  }
+  .badge.good { background: #A8E6CF; color: #3F6A58; }
+  .badge.warn { background: #FFE2A8; color: #8A6A20; }
+  .badge.bad  { background: #FFB3BA; color: #fff; }
+
+  .msg {
+    margin-top: 8px; padding: 10px 14px; border-radius: 12px;
+    font-size: 0.92rem; font-weight: 500; line-height: 1.6;
+  }
+  .msg.good { background: #EBF9F2; color: #3F6A58; }
+  .msg.warn { background: #FFF8E8; color: #8A6A20; }
+  .msg.bad  { background: #FFEEF0; color: #A8435A; }
+
+  button {
+    width: 100%; margin-top: 6px; padding: 12px;
+    background: #FFC8A2; color: #5C4A42; border: none;
+    border-radius: 30px; font-weight: 700; cursor: pointer;
+    font-size: 0.96rem; transition: background 0.2s;
+  }
+  button:hover { background: #FFB68E; }
+  .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+  .btn-row button { margin-top: 0; }
+  .btn-cold { background: #B5D8FF !important; color: #33567A !important; }
+  .btn-cold:hover { background: #9CC8F5 !important; }
+  .btn-hot { background: #FFB3BA !important; color: #fff !important; }
+  .btn-hot:hover { background: #F59AA6 !important; }
+  .btn-sweep {
+    background: linear-gradient(90deg, #B5D8FF, #FFB3BA) !important;
+    color: #fff !important;
+  }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    font-size: 0.86rem; color: #7A6A62; margin-top: 8px;
+  }
+  .legend span { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .dash { width: 22px; height: 3px; border-radius: 2px; }
+  .curve-knee { width: 22px; height: 3px; border-radius: 2px; background: #C8A8E9; }
+
+  .conclusion {
+    margin-top: 14px; padding: 14px 16px;
+    background: #FFF8F0; border: 1px solid #FFDAC1;
+    border-radius: 16px; font-size: 0.95rem; color: #7A5A40;
+    line-height: 1.75;
+  }
+  .conclusion b { color: #A8435A; }
+  .conclusion .title {
+    font-weight: 700; color: #A8435A; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .conclusion .kv {
+    display: inline-block; padding: 1px 8px; border-radius: 6px;
+    background: #FFE8D8; margin: 0 3px; font-weight: 600;
+    color: #A8435A;
+  }
+
+  .note {
+    margin-top: 12px; padding: 14px 18px;
+    background: #F5F9FE; border: 1px dashed #A8C5D8;
+    border-radius: 14px; font-size: 0.9rem; color: #4A6A85;
+    line-height: 1.75;
+  }
+  .note b { color: #1E6F9F; }
+  .note .warn-title {
+    font-weight: 700; color: #A8435A;
+    font-size: 0.98rem; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  /* ★ 新增: 紫色说明框样式 */
+  .note.purple {
+    background: #F7F3FC;
+    border-color: #C8A8E9;
+  }
+  .note.purple b { color: #6B4A9E; }
+  .note.purple .warn-title { color: #6B4A9E; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌡️ 温度漂移 → Q点移动 → 非线性失真 <span>动态轨迹版</span></h1>
+
+  <div class="subhead">
+    <b>电路参数固定</b>（V<sub>CC</sub>=12V, R<sub>C</sub>=R<sub>L</sub>=2kΩ, R'_L=1kΩ，增益 |A<sub>v</sub>|≈60）。<br>
+    🔹 常温 Q 点设计在 <b>最大对称动态范围中心</b>：i<sub>CQ</sub>=(V<sub>CC</sub>-V<sub>CEsat</sub>)/(R<sub>C</sub>+R'<sub>L</sub>)。<br>
+    🔹 温度漂移使 Q 点沿 <b>直流负载线</b>移动；动态工作点沿 <b>交流负载线</b>摆动。<br>
+    🔹 <b class="hl3">饱和边界轨迹</b> = 各条 i<sub>B</sub> 曲线拐点（曲线由陡升转入平缓处）的连线；<br>
+    　　<b class="hl">动态最高端</b>与饱和边界轨迹的交点，即<b>饱和临界点</b>；交点之后沿交流负载线到纵轴交点的部分画虚线（实际到不了）。<br>
+    🔹 <b class="hl2">最低端 i<sub>C</sub>≈0</b>（截止，i<sub>B</sub>≈0 所致）；<b class="hl">最高端 v<sub>CE</sub>≤V<sub>CEsat</sub></b>（饱和限流，i<sub>C</sub> 不再随 i<sub>B</sub> 增大）。<br>
+    　　<span style="color:#8E6DB5; font-weight:600;">⚠️ 饱和后动态最高端不是"i<sub>C</sub> 下降"，而是<b>钳位点沿饱和边界滑动</b>——随温度继续升高，Q 点沿直流负载线下移，交流负载线随之平移，它与饱和边界的交点位置也跟着移动。</span>
+  </div>
+
+  <div class="layout">
+    <div class="left">
+      <div class="panel">
+        <canvas id="bjtCanvas" width="900" height="620"></canvas>
+      </div>
+      <div class="panel" style="padding: 14px 20px;">
+        <div class="slider-label">
+          <span>🌡️ 环境温度 T</span>
+          <span class="val" id="tempVal">25 °C</span>
+        </div>
+        <div class="temp-bar"></div>
+        <input type="range" id="tempSlider" min="0" max="70" step="1" value="25">
+        <div class="scale">
+          <span>0°C (冷, 截止失真)</span>
+          <span>25°C (常温, 线性放大)</span>
+          <span>70°C (热, 饱和失真)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="panel wave-panel">
+        <div class="wave-title">
+          <span>📥 输入信号 v<sub>i</sub></span>
+          <span class="tag" id="viTag">52mV</span>
+        </div>
+        <canvas id="inputWave" width="360" height="90"></canvas>
+      </div>
+
+      <div class="panel wave-panel" id="outputPanel">
+        <div class="wave-title">
+          <span>📤 输出信号 v<sub>o</sub> (v<sub>CE</sub>)</span>
+          <span class="tag" id="clipTag">无削波</span>
+        </div>
+        <canvas id="outputWave" width="360" height="200"></canvas>
+        <div class="msg good" id="msgBox">✅ 线性放大</div>
+      </div>
+
+      <div class="status-box">
+        <div class="status-row"><span>Q点 i<sub>C</sub></span><b id="sIc">3.90 mA</b></div>
+        <div class="status-row"><span>Q点 v<sub>CE</sub></span><b id="sVce">4.20 V</b></div>
+        <div class="status-row"><span>小信号增益 |A<sub>v</sub>|</span><b id="sAv">60</b></div>
+        <div class="status-row"><span>状态</span><span class="badge good" id="sBadge">放大区</span></div>
+        <div class="btn-row">
+          <button id="btnCold" class="btn-cold">❄️ 降温 10°C</button>
+          <button id="btnHot" class="btn-hot">🔥 升温 10°C</button>
+        </div>
+        <button id="btnSweep" class="btn-sweep">▶ 自动扫描温度</button>
+        <button id="resetBtn">⟲ 回到常温 25°C</button>
+      </div>
+
+      <div class="legend">
+        <span><i class="dash" style="background:#C9C9C9;"></i>直流负载线</span>
+        <span><i class="dash" style="background:#FFDAC1;"></i>交流负载线</span>
+        <span><i class="curve-knee"></i>饱和边界轨迹</span>
+        <span><i class="dash" style="background:#B0A098;"></i>v<sub>CE</sub>=0.3V 参考</span>
+        <span><i class="dot" style="background:#A8E6CF;"></i>未失真段</span>
+        <span><i class="dot" style="background:#B5D8FF;"></i>截止段</span>
+        <span><i class="dot" style="background:#FFB3BA;"></i>饱和限流段</span>
+        <span><i class="dot" style="background:#D4B5FF;"></i>严重失真段</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="conclusion">
+    <div class="title">💡 教学结论</div>
+    <div id="conclusionText"></div>
+  </div>
+
+  <div class="note">
+    <div class="warn-title">📌 关于实际温漂是否会导致这么明显的静态工作点不稳定</div>
+    本演示为便于观察，将温度系数人为放大到约 <b>1.2%/°C</b>（升温），
+    使得 Q 点在 25°C→70°C 区间内能明显漂移、并深入饱和区。<br>
+    <br>
+    <b>实际 BJT 固定偏置电路的温漂典型值：</b><br>
+    · V<sub>BE</sub> 温度系数 ≈ <b>−2.2 mV/°C</b><br>
+    · β 温度系数 ≈ <b>+0.5%~1%/°C</b><br>
+    · I<sub>CBO</sub> 每升高 10°C 约翻倍<br>
+    · 综合效果：I<sub>CQ</sub> 温漂约 <b>0.5%~1.5%/°C</b><br>
+    <br>
+    <b>累计效果并不小：</b><br>
+    以 I<sub>CQ</sub>≈1%/°C 估算，25°C→75°C（ΔT=50°C）时 I<sub>CQ</sub> 可增大
+    <b>约 60%</b>；若初始 Q 点已靠近饱和边界，则完全可能因漂移进入饱和区，
+    造成输出波形削顶。<br>
+    <br>
+    <b>结论：</b>真实温漂虽然没有本演示放大后的效果那么夸张，
+    但 <b>固定偏置电路的 Q 点确实会随温度明显漂移</b>，
+    这正是工程上必须采用 <b>分压式偏置 + 射极电阻</b>（直流负反馈）
+    来稳定 Q 点的原因。
+  </div>
+
+  <!-- ★ 新增: 饱和后动态最高端"沿边界滑动"的说明 -->
+  <div class="note purple">
+    <div class="warn-title">📌 关于饱和后动态最高端"沿边界滑动"的说明</div>
+    饱和后，动态最高端的 <b>i<sub>C</sub> 并不是"下降"</b>，而是<b>钳位点沿饱和边界滑动</b>。具体过程：<br>
+    <br>
+    ① 温度升高 → Q 点 <b>i<sub>CQ</sub> 增大</b>、<b>v<sub>CEQ</sub> 减小</b>（沿直流负载线下移）<br>
+    ② 交流负载线随 Q 点<b>平移</b>（斜率不变）<br>
+    ③ 交流负载线与饱和边界的<b>交点位置随之改变</b>（交点 i<sub>C</sub> 逐渐减小，v<sub>CE</sub> 保持在饱和边界上）<br>
+    ④ 动态最高端被钳在此交点上，<b>随交点的滑动而滑动</b><br>
+    <br>
+    所以在主画布上，饱和后动态最高端的<b>运动方向发生改变</b>：<br>
+    · <b>饱和前</b>：沿交流负载线向上（i<sub>C</sub> 增大、v<sub>CE</sub> 减小）<br>
+    · <b>饱和后</b>：沿饱和边界滑动（i<sub>C</sub> 逐渐减小、v<sub>CE</sub> 沿边界）<br>
+    <br>
+    这个"方向变化"看起来像 i<sub>C</sub> 在"下降"，但实际上<b>钳位点始终在饱和边界上</b>，是 Q 点平移导致的边界交点移动，物理上是正确的。
+  </div>
+</div>
+
+<script>
+(function(){
+  /* ==================== 电路参数 (固定) ==================== */
+  const VCC = 12, RC = 2, RL = 2;
+  const Rac = (RC*RL)/(RC+RL);
+  const ibCurves = [10,20,30,40,50,60,70,80,90];
+
+  const VT = 0.026;
+
+  const VCE_SAT = 0.3;
+  const IC_MIN  = 0.02;
+  const IC_MAX  = (VCC - VCE_SAT) / RC;
+
+  const Y_MAX = 9;
+  const Y_TICK_STEP = 1.5;
+  const EARLY_V = 80;
+
+  function V_knee(ib_uA){
+    return 0.3 + 0.001 * ib_uA;
+  }
+  function iC_at_knee(ib_uA){
+    const ibmA = ib_uA / 1000;
+    const vk = V_knee(ib_uA);
+    return 100 * ibmA * (1 - Math.exp(-vk/0.3)) * (1 + vk/EARLY_V);
+  }
+
+  const MACARON = {
+    undistorted: '#A8E6CF',
+    cutoff:      '#B5D8FF',
+    sat:         '#FFB3BA',
+    severe:      '#D4B5FF',
+    dcLine:      '#C9C9C9',
+    acLine:      '#FFDAC1',
+    qPoint:      '#FFC8A2',
+    kneeCurve:   '#C8A8E9',
+    kneeDot:     '#9B7BC8',
+    kneeDashed:  '#C8C0D8',
+    refLine:     '#B0A098',
+    grid:        '#F5EAE4',
+    axis:        '#A8958A'
+  };
+
+  /* ==================== 常温设计 ==================== */
+  const ICQ_0  = (VCC - VCE_SAT) / (RC + Rac);
+  const VCEQ_0 = VCC - ICQ_0 * RC;
+  const VCC_0  = VCEQ_0 + ICQ_0 * Rac;
+
+  const VOM_MAX_UP   = ICQ_0 * Rac;
+  const VOM_MAX_DOWN = VCEQ_0 - VCE_SAT;
+  const VOM_MAX = Math.min(VOM_MAX_UP, VOM_MAX_DOWN);
+
+  const AV_0 = 60;
+  const VI_AMPLITUDE = 0.052;
+
+  /* ==================== 温度模型 ==================== */
+  const BETA_0 = 100;
+  function icqFromTemp(T){
+    const dT = T - 25;
+    let k = (dT >= 0) ? 0.0116 : 0.1030;
+    let icq = ICQ_0 * Math.exp(k * dT);
+    if (icq > IC_MAX) icq = IC_MAX;
+    if (icq < 0) icq = 0;
+    return icq;
+  }
+
+  /* ==================== 主画布 ==================== */
+  const canvas = document.getElementById('bjtCanvas');
+  const ctx = canvas.getContext('2d');
+  const M = {l:90, r:55, t:38, b:72};
+  const PW = canvas.width - M.l - M.r;
+  const PH = canvas.height - M.t - M.b;
+  const X0=0, X1=12, Y0=0, Y1=Y_MAX;
+  const cX = v => M.l + (v-X0)/(X1-X0)*PW;
+  const cY = i => M.t + PH - (i-Y0)/(Y1-Y0)*PH;
+
+  const inCv = document.getElementById('inputWave');
+  const inCtx = inCv.getContext('2d');
+  const outCv = document.getElementById('outputWave');
+  const outCtx = outCv.getContext('2d');
+
+  let temperature = 25;
+  let icQ = ICQ_0;
+  let sweepTimer = null;
+  let sweepDir = 1;
+
+  function getQ(){
+    let vce = VCC - icQ*RC;
+    let ib = (icQ/BETA_0)*1000;
+    if (vce < 0.5) ib = ib*(1+(0.5-vce)*2);
+    return {ic: icQ, vce, ib};
+  }
+
+  function getGain(){
+    const gm = ICQ_0 / VT;
+    return {gm, Av: AV_0};
+  }
+
+  function findSatCrossPoint(q){
+    const qIc = q.ic, qVce = q.vce;
+    const vcc0 = qVce + qIc * Rac;
+
+    const N = 400;
+    let prevInside = null;
+    let crossVce = null, crossIc = null;
+
+    for (let i=0; i<=N; i++){
+      const ic = (i/N) * (vcc0 / Rac);
+      const vce = vcc0 - ic * Rac;
+
+      let inside = false;
+      if (vce < 0.3) {
+        inside = true;
+      } else {
+        const ibAtVce = (vce - 0.3) / 0.001;
+        if (ibAtVce >= 0 && ibAtVce <= 300) {
+          const icKnee = iC_at_knee(ibAtVce);
+          inside = (ic >= icKnee);
+        } else if (ibAtVce > 300) {
+          inside = false;
+        }
+      }
+
+      if (prevInside === false && inside === true){
+        crossVce = vce;
+        crossIc = ic;
+        break;
+      }
+      prevInside = inside;
+    }
+
+    return {vce: crossVce, ic: crossIc, vcc0};
+  }
+
+  function computeDynamicEnds(q, deltaIc){
+    const qIc = q.ic, qVce = q.vce;
+    const vcc0 = qVce + qIc * Rac;
+
+    const cross = findSatCrossPoint(q);
+
+    const icTop_ideal = qIc + deltaIc;
+    const satClipped = (cross.ic !== null) && (icTop_ideal >= cross.ic);
+    let icTop, vceTop;
+    if (satClipped) {
+      icTop = cross.ic;
+      vceTop = cross.vce;
+    } else {
+      icTop = icTop_ideal;
+      vceTop = qVce - deltaIc * Rac;
+    }
+
+    const icBot_ideal = qIc - deltaIc;
+    const cutClipped = (icBot_ideal <= 0);
+    let icBot, vceBot;
+    if (cutClipped) {
+      icBot = 0;
+      vceBot = vcc0;
+    } else {
+      icBot = icBot_ideal;
+      vceBot = qVce + deltaIc * Rac;
+    }
+
+    return {
+      icTop, vceTop, satClipped,
+      icBot, vceBot, cutClipped,
+      icTop_ideal, icBot_ideal,
+      vcc0,
+      cross_vce: cross.vce,
+      cross_ic: cross.ic
+    };
+  }
+
+  function drawCurves(){
+    for (let ib of ibCurves){
+      const ibmA = ib/1000;
+      ctx.beginPath();
+      let first = true;
+      for (let i=0;i<=240;i++){
+        const vce = X0 + (i/240)*(X1-X0);
+        let ic = BETA_0*ibmA*(1-Math.exp(-vce/0.3))*(1+vce/EARLY_V);
+        if (ic > Y1 + 0.4) continue;
+        const px = cX(vce), py = cY(ic);
+        if (first){ ctx.moveTo(px,py); first=false; }
+        else ctx.lineTo(px,py);
+      }
+      ctx.strokeStyle='#A8C5D8'; ctx.lineWidth=1.7; ctx.globalAlpha=0.7;
+      ctx.stroke();
+
+      const lv = 11.3;
+      const lic = BETA_0*ibmA*(1-Math.exp(-lv/0.3))*(1+lv/EARLY_V);
+      ctx.font='14px Segoe UI,sans-serif'; ctx.fillStyle='#7AA0B8';
+      ctx.globalAlpha=0.95;
+      if (lic <= Y1 - 0.15){
+        ctx.fillText(`iB=${ib}μA`, cX(11.3) + 4, cY(lic) + 5);
+      } else {
+        ctx.fillText(`iB=${ib}μA`, cX(11.3) + 4, cY(Y1) + 4);
+      }
+
+      const vk = V_knee(ib);
+      const ik = iC_at_knee(ib);
+      if (vk <= X1 && ik <= Y1) {
+        ctx.beginPath();
+        ctx.arc(cX(vk), cY(ik), 4, 0, 7);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fill();
+        ctx.strokeStyle = MACARON.kneeDot;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawKneeCurve(){
+    ctx.beginPath();
+    let first = true;
+    for (let ib = 5; ib <= 250; ib += 2){
+      const vk = V_knee(ib);
+      const ik = iC_at_knee(ib);
+      if (vk > X1 || ik > Y1 + 0.5) continue;
+      const px = cX(vk), py = cY(Math.min(ik, Y1 + 0.4));
+      if (first){ ctx.moveTo(px, py); first = false; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+
+    ctx.beginPath();
+    first = true;
+    for (let ib = 5; ib <= 250; ib += 2){
+      const vk = V_knee(ib);
+      const ik = iC_at_knee(ib);
+      if (vk > X1 || ik > Y1 + 0.5) continue;
+      const px = cX(vk), py = cY(Math.min(ik, Y1 + 0.4));
+      if (first){ ctx.moveTo(px, py); first = false; }
+      else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = MACARON.kneeCurve;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+
+    ctx.font = 'bold 14px Segoe UI,sans-serif';
+    ctx.fillStyle = '#8E6DB5';
+    ctx.fillText('饱和边界轨迹 (拐点连线)', cX(2.2), cY(3.0));
+  }
+
+  function drawRefVce03(){
+    ctx.beginPath();
+    ctx.moveTo(cX(0.3), cY(0));
+    ctx.lineTo(cX(0.3), cY(Y1));
+    ctx.strokeStyle = MACARON.refLine;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([3, 4]);
+    ctx.globalAlpha = 0.7;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    ctx.font = '13px Segoe UI,sans-serif';
+    ctx.fillStyle = '#8A7A70';
+    ctx.fillText('v_CE = 0.3V 参考', cX(0.45), cY(Y1 - 0.3));
+  }
+
+  function findCriticalSatCurve(q, dynEnds){
+    if (!dynEnds.satClipped) return null;
+
+    let bestIb = null, bestDist = Infinity;
+    for (let ib of ibCurves){
+        const ibmA = ib / 1000;
+        const icOnCurve = BETA_0 * ibmA * (1 - Math.exp(-VCE_SAT/0.3)) * (1 + VCE_SAT/EARLY_V);
+        const dist = Math.abs(icOnCurve - dynEnds.cross_ic);
+        if (dist < bestDist){
+            bestDist = dist;
+            bestIb = ib;
+        }
+    }
+    if (bestIb === null) return null;
+    return {ib: bestIb};
+  }
+
+  function drawCriticalSatCurve(info){
+    if (!info) return;
+    const {ib} = info;
+    const ibmA = ib / 1000;
+
+    ctx.beginPath();
+    let first = true;
+    for (let i=0;i<=60;i++){
+        const vce = (i/60) * 2.0;
+        let ic = BETA_0 * ibmA * (1 - Math.exp(-vce/0.3)) * (1 + vce/EARLY_V);
+        const px = cX(vce), py = cY(Math.min(ic, Y1+0.4));
+        if (first){ ctx.moveTo(px,py); first=false; }
+        else ctx.lineTo(px,py);
+    }
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.9;
+    ctx.stroke();
+
+    ctx.beginPath();
+    first = true;
+    for (let i=0;i<=60;i++){
+        const vce = (i/60) * 2.0;
+        let ic = BETA_0 * ibmA * (1 - Math.exp(-vce/0.3)) * (1 + vce/EARLY_V);
+        const px = cX(vce), py = cY(Math.min(ic, Y1+0.4));
+        if (first){ ctx.moveTo(px,py); first=false; }
+        else ctx.lineTo(px,py);
+    }
+    ctx.strokeStyle = '#FFE8A3';
+    ctx.lineWidth = 3.5;
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+  }
+
+  function drawDC(){
+    ctx.beginPath();
+    ctx.moveTo(cX(VCC), cY(0));
+    ctx.lineTo(cX(0), cY(VCC/RC));
+    ctx.strokeStyle=MACARON.dcLine; ctx.lineWidth=2.2;
+    ctx.setLineDash([6,6]); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.font='14px Segoe UI,sans-serif'; ctx.fillStyle='#A8958A';
+    ctx.fillText('直流负载线 (斜率 -1/R_C)', cX(0.5), cY(VCC/RC) - 12);
+  }
+
+  function drawAC(q){
+    const {vce:qV, ic:qI} = q;
+    const icInt = qI + qV/Rac;
+    const vceInt = qV + qI*Rac;
+    ctx.beginPath();
+    ctx.moveTo(cX(0), cY(icInt));
+    ctx.lineTo(cX(vceInt), cY(0));
+    ctx.strokeStyle=MACARON.acLine; ctx.lineWidth=3.2;
+    ctx.setLineDash([8,5]); ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.font='14px Segoe UI,sans-serif'; ctx.fillStyle='#D4A47A';
+    ctx.fillText("交流负载线 (斜率 -1/R'_L)", cX(6.2), cY(3.5));
+  }
+
+  function drawDynamicTrace(q, dynEnds){
+    const {icTop, vceTop, satClipped, icBot, vceBot, cutClipped} = dynEnds;
+
+    const icIntAxisVce0 = dynEnds.vcc0 / Rac;
+    const vceIntAxisIc0 = dynEnds.vcc0;
+
+    ctx.beginPath();
+    ctx.arc(cX(vceIntAxisIc0), cY(0), 5, 0, 7);
+    ctx.fillStyle = '#B5D8FF'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cX(0), cY(icIntAxisVce0), 5, 0, 7);
+    ctx.fillStyle = '#FFB3BA'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    function drawSegmentSolid(ic1, ic2, color, width){
+      const vceAC1 = q.vce - (ic1 - q.ic)*Rac;
+      const vceAC2 = q.vce - (ic2 - q.ic)*Rac;
+      ctx.beginPath();
+      ctx.moveTo(cX(vceAC1), cY(ic1));
+      ctx.lineTo(cX(vceAC2), cY(ic2));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    let hasCut = cutClipped;
+    let hasSat = satClipped;
+
+    if (hasCut && hasSat) {
+      drawSegmentSolid(icTop, icTop, MACARON.sat, 9);
+      drawSegmentSolid(icBot, icBot, MACARON.cutoff, 9);
+      const icMid_min = Math.max(0, icBot);
+      const icMid_max = Math.min(icTop, dynEnds.cross_ic);
+      if (icMid_max > icMid_min) {
+        drawSegmentSolid(icMid_min, icMid_max, MACARON.severe, 7);
+      }
+    } else if (hasSat) {
+      drawSegmentSolid(icBot, dynEnds.cross_ic, MACARON.sat, 7);
+      const vceCross = dynEnds.cross_vce;
+      const vceAxis = 0;
+      const icAxis = dynEnds.vcc0 / Rac;
+      ctx.beginPath();
+      ctx.moveTo(cX(vceCross), cY(dynEnds.cross_ic));
+      ctx.lineTo(cX(vceAxis), cY(icAxis));
+      ctx.strokeStyle = MACARON.kneeDashed;
+      ctx.lineWidth = 2.4;
+      ctx.setLineDash([5, 5]);
+      ctx.globalAlpha = 0.7;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+    } else if (hasCut) {
+      drawSegmentSolid(0, icTop, MACARON.cutoff, 7);
+      drawSegmentSolid(icBot, icBot, MACARON.cutoff, 9);
+    } else {
+      drawSegmentSolid(icBot, icTop, MACARON.undistorted, 7);
+    }
+
+    ctx.beginPath();
+    ctx.arc(cX(vceBot), cY(icBot), 7, 0, 7);
+    let botColor = hasCut ? MACARON.cutoff : MACARON.undistorted;
+    ctx.fillStyle = botColor; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cX(vceTop), cY(icTop), 7, 0, 7);
+    let topColor = hasSat ? MACARON.sat : MACARON.undistorted;
+    ctx.fillStyle = topColor; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    if (hasSat && dynEnds.cross_vce !== null) {
+      const px = cX(dynEnds.cross_vce), py = cY(dynEnds.cross_ic);
+      ctx.beginPath();
+      ctx.moveTo(px, py - 11);
+      ctx.lineTo(px + 11, py);
+      ctx.lineTo(px, py + 11);
+      ctx.lineTo(px - 11, py);
+      ctx.closePath();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(px, py - 8);
+      ctx.lineTo(px + 8, py);
+      ctx.lineTo(px, py + 8);
+      ctx.lineTo(px - 8, py);
+      ctx.closePath();
+      ctx.fillStyle = MACARON.kneeCurve;
+      ctx.fill();
+      ctx.strokeStyle = MACARON.kneeDot;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = 'bold 12px Segoe UI,sans-serif';
+      ctx.fillStyle = '#8E6DB5';
+      ctx.fillText('饱和临界点', px + 14, py - 6);
+    }
+
+    ctx.font='13px Segoe UI,sans-serif';
+    if (hasCut) {
+      ctx.fillStyle='#4A88C0';
+      ctx.fillText('截止 (iC=0)', cX(vceBot)-55, cY(icBot)-14);
+    } else {
+      ctx.fillStyle='#3F6A58';
+      ctx.fillText('iC,min', cX(vceBot)-25, cY(icBot)-14);
+    }
+    if (!hasSat) {
+      ctx.fillStyle='#3F6A58';
+      ctx.fillText('iC,max', cX(vceTop)-25, cY(icTop)+22);
+    }
+
+    ctx.font='13px Segoe UI,sans-serif';
+    ctx.fillStyle='#4A88C0';
+    ctx.fillText('iC=0', cX(vceIntAxisIc0)+8, cY(0)-8);
+    ctx.fillStyle='#D06078';
+    ctx.fillText('vCE=0', cX(0)+8, cY(icIntAxisVce0)+16);
+  }
+
+  function drawQ(q){
+    const x=cX(q.vce), y=cY(q.ic);
+    let color = MACARON.qPoint;
+    let ringColor = '#C08860';
+    if (temperature > 45) { color = '#FFC8A2'; ringColor = '#E07A8B'; }
+    else if (temperature < 10) { color = '#D4ECFF'; ringColor = '#6BA8E0'; }
+
+    const refX = cX(VCEQ_0), refY = cY(ICQ_0);
+    if (Math.abs(temperature - 25) > 2) {
+      ctx.beginPath();
+      ctx.moveTo(refX, refY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = temperature > 25 ? 'rgba(255,179,186,0.7)' : 'rgba(181,216,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4,4]);
+      ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(refX, refY, 4, 0, 7);
+      ctx.fillStyle = '#DDD'; ctx.fill();
+      ctx.font='13px Segoe UI,sans-serif'; ctx.fillStyle='#B0A098';
+      ctx.fillText('常温Q', refX-22, refY+24);
+    }
+
+    ctx.beginPath(); ctx.arc(x,y,12,0,7); ctx.fillStyle=color;
+    ctx.shadowColor=ringColor; ctx.shadowBlur=12; ctx.fill(); ctx.shadowBlur=0;
+    ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fillStyle='#fff'; ctx.fill();
+    ctx.strokeStyle=ringColor; ctx.lineWidth=2.2; ctx.stroke();
+    ctx.font='bold 17px Segoe UI,sans-serif'; ctx.fillStyle=ringColor;
+    ctx.fillText('Q', x+16, y-10);
+  }
+
+  function drawAxes(){
+    ctx.strokeStyle=MACARON.grid; ctx.lineWidth=0.9;
+    for (let v=0;v<=12;v+=2){
+      ctx.beginPath(); ctx.moveTo(cX(v),M.t); ctx.lineTo(cX(v),M.t+PH); ctx.stroke();
+    }
+    for (let i=0;i<=Y_MAX;i+=Y_TICK_STEP){
+      ctx.beginPath(); ctx.moveTo(M.l,cY(i)); ctx.lineTo(M.l+PW,cY(i)); ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(M.l,M.t); ctx.lineTo(M.l,M.t+PH); ctx.lineTo(M.l+PW,M.t+PH);
+    ctx.strokeStyle=MACARON.axis; ctx.lineWidth=2.4; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(M.l+PW-9,M.t+PH-7); ctx.lineTo(M.l+PW,M.t+PH); ctx.lineTo(M.l+PW-9,M.t+PH+7);
+    ctx.fillStyle=MACARON.axis; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(M.l-7,M.t+9); ctx.lineTo(M.l,M.t); ctx.lineTo(M.l+7,M.t+9);
+    ctx.fill();
+    ctx.font='bold 17px Segoe UI,sans-serif'; ctx.fillStyle='#7A6A62';
+    ctx.fillText('v_CE (V)', M.l+PW/2-38, M.t+PH+50);
+    ctx.save(); ctx.translate(22,M.t+PH/2+24); ctx.rotate(-Math.PI/2);
+    ctx.fillText('i_C (mA)',0,0); ctx.restore();
+    ctx.font='16px Segoe UI,sans-serif'; ctx.fillStyle='#7A6A62';
+    for (let v=0;v<=12;v+=2) ctx.fillText(v, cX(v)-9, M.t+PH+26);
+    for (let i=0;i<=Y_MAX+0.001;i+=Y_TICK_STEP){
+      const label = (i % 1 === 0) ? i.toFixed(0) : i.toFixed(1);
+      ctx.fillText(label, M.l-46, cY(i)+6);
+    }
+    ctx.fillText('0', M.l-26, M.t+PH+26);
+
+    const Tdisp = temperature.toFixed(0);
+    let tColor = '#A8958A';
+    if (temperature > 45) tColor = '#E07A8B';
+    else if (temperature < 10) tColor = '#6BA8E0';
+    ctx.font='bold 19px Segoe UI,sans-serif'; ctx.fillStyle=tColor;
+    ctx.fillText(`T = ${Tdisp}°C`, M.l + PW - 130, M.t + 28);
+  }
+
+  function drawInputWave(){
+    const w=inCv.width, h=inCv.height;
+    inCtx.clearRect(0,0,w,h);
+    inCtx.fillStyle='#FFFCF9'; inCtx.fillRect(0,0,w,h);
+    inCtx.strokeStyle='#F5EAE4'; inCtx.lineWidth=0.7;
+    for (let i=1;i<6;i++){
+      const x=(i/6)*w; inCtx.beginPath(); inCtx.moveTo(x,0); inCtx.lineTo(x,h); inCtx.stroke();
+    }
+    const midY = h/2;
+    inCtx.strokeStyle='#E8D9D0'; inCtx.beginPath();
+    inCtx.moveTo(0,midY); inCtx.lineTo(w,midY); inCtx.stroke();
+
+    const amp = h*0.38;
+    inCtx.beginPath();
+    for (let i=0;i<=200;i++){
+      const t=i/200;
+      const x=t*w;
+      const y=midY - amp*Math.sin(t*Math.PI*4);
+      if (i===0) inCtx.moveTo(x,y); else inCtx.lineTo(x,y);
+    }
+    inCtx.strokeStyle='#7ECFC0'; inCtx.lineWidth=2.8; inCtx.stroke();
+    inCtx.font='14px Segoe UI,sans-serif'; inCtx.fillStyle='#3F6A58';
+    inCtx.fillText('v_i', 12, 20);
+    inCtx.fillText((VI_AMPLITUDE*1000).toFixed(0)+'mV', w-70, 20);
+  }
+
+  function drawOutputWave(q, dynEnds){
+    const w=outCv.width, h=outCv.height;
+    outCtx.clearRect(0,0,w,h);
+    outCtx.fillStyle='#FFFCF9'; outCtx.fillRect(0,0,w,h);
+
+    outCtx.strokeStyle='#F5EAE4'; outCtx.lineWidth=0.7;
+    for (let i=1;i<6;i++){
+      const x=(i/6)*w; outCtx.beginPath(); outCtx.moveTo(x,0); outCtx.lineTo(x,h); outCtx.stroke();
+    }
+
+    const qVce = q.vce;
+    const { Av } = getGain();
+    const VO_AMPLITUDE = VI_AMPLITUDE * Av;
+
+    const VCE_CUTOFF = dynEnds.vcc0;
+    const VCE_SAT_BOUND = VCE_SAT;
+
+    const N = 240;
+    const idealVce = [];
+    const actualVce = [];
+    let clipTop = false;
+    let clipBot = false;
+
+    for (let i=0;i<=N;i++){
+      const t = i/N;
+      const angle = t * Math.PI * 4;
+      const vi = VI_AMPLITUDE * Math.sin(angle);
+      const vo = -Av * vi;
+      const ideal = qVce + vo;
+      idealVce.push(ideal);
+
+      let a = ideal;
+      if (a > VCE_CUTOFF) { a = VCE_CUTOFF; clipTop = true; }
+      if (a < VCE_SAT_BOUND) { a = VCE_SAT_BOUND; clipBot = true; }
+      actualVce.push(a);
+    }
+
+    const vLo = 0.0, vHi = 12.0;
+    const padTop = 40;
+    const padBot = 30;
+    const mapY = v => {
+      const t = (v - vLo) / (vHi - vLo);
+      return (h - padBot) - t * (h - padTop - padBot);
+    };
+
+    outCtx.beginPath();
+    outCtx.moveTo(0, mapY(VCE_CUTOFF)); outCtx.lineTo(w, mapY(VCE_CUTOFF));
+    outCtx.strokeStyle = 'rgba(107,168,224,0.75)';
+    outCtx.lineWidth = 1.6; outCtx.setLineDash([4,4]); outCtx.stroke(); outCtx.setLineDash([]);
+    outCtx.font='13px Segoe UI,sans-serif'; outCtx.fillStyle='#4A88C0';
+    outCtx.fillText('截止边界 (iC=0)', w - 130, mapY(VCE_CUTOFF) - 6);
+
+    outCtx.beginPath();
+    outCtx.moveTo(0, mapY(VCE_SAT_BOUND)); outCtx.lineTo(w, mapY(VCE_SAT_BOUND));
+    outCtx.strokeStyle = 'rgba(224,122,139,0.75)';
+    outCtx.lineWidth = 1.6; outCtx.setLineDash([4,4]); outCtx.stroke(); outCtx.setLineDash([]);
+    outCtx.font='13px Segoe UI,sans-serif'; outCtx.fillStyle='#D06078';
+    outCtx.fillText('饱和边界 0.3V', w - 118, mapY(VCE_SAT_BOUND) + 18);
+
+    outCtx.beginPath();
+    for (let i=0;i<=N;i++){
+      const x = (i/N)*w;
+      const y = mapY(idealVce[i]);
+      if (i===0) outCtx.moveTo(x,y); else outCtx.lineTo(x,y);
+    }
+    outCtx.strokeStyle='rgba(200,190,185,0.65)';
+    outCtx.lineWidth=1.3; outCtx.setLineDash([3,3]); outCtx.stroke(); outCtx.setLineDash([]);
+
+    outCtx.beginPath();
+    for (let i=0;i<=N;i++){
+      const x = (i/N)*w;
+      const y = mapY(actualVce[i]);
+      if (i===0) outCtx.moveTo(x,y); else outCtx.lineTo(x,y);
+    }
+    let waveColor = '#7ECFC0';
+    if (clipTop && clipBot) waveColor = '#B58AE0';
+    else if (clipBot) waveColor = '#FF8FA0';
+    else if (clipTop) waveColor = '#7EB8E8';
+    outCtx.strokeStyle=waveColor; outCtx.lineWidth=3.2; outCtx.stroke();
+
+    if (clipTop){
+      outCtx.fillStyle='rgba(181,216,255,0.4)';
+      outCtx.fillRect(0, mapY(VCE_CUTOFF)-4, w, 9);
+      outCtx.font='bold 14px Segoe UI,sans-serif'; outCtx.fillStyle='#4A88C0';
+      outCtx.fillText('▲ 截止削顶', 10, mapY(VCE_CUTOFF) - 12);
+    }
+    if (clipBot){
+      outCtx.fillStyle='rgba(255,179,186,0.4)';
+      outCtx.fillRect(0, mapY(VCE_SAT_BOUND)-4, w, 9);
+      outCtx.font='bold 14px Segoe UI,sans-serif'; outCtx.fillStyle='#D06078';
+      outCtx.fillText('▼ 饱和削底', 10, mapY(VCE_SAT_BOUND) + 24);
+    }
+
+    const qY = mapY(qVce);
+    outCtx.beginPath(); outCtx.moveTo(0,qY); outCtx.lineTo(w,qY);
+    outCtx.strokeStyle='#FFC8A2'; outCtx.lineWidth=1.6;
+    outCtx.setLineDash([4,4]); outCtx.stroke(); outCtx.setLineDash([]);
+    outCtx.font='bold 14px Segoe UI,sans-serif'; outCtx.fillStyle='#C08860';
+    outCtx.fillText('Q', 10, qY-6);
+
+    return {clipTop, clipBot, voAmp: VO_AMPLITUDE};
+  }
+
+  function updateUI(q, clip, critSat, dynEnds){
+    document.getElementById('sIc').textContent = q.ic.toFixed(2)+' mA';
+    document.getElementById('sVce').textContent = q.vce.toFixed(2)+' V';
+    const { Av } = getGain();
+    document.getElementById('sAv').textContent = Av.toFixed(1);
+    document.getElementById('viTag').textContent = (VI_AMPLITUDE*1000).toFixed(0)+'mV';
+
+    const tv = document.getElementById('tempVal');
+    tv.textContent = temperature.toFixed(0) + ' °C';
+    tv.className = 'val' + (temperature > 45 ? ' hot' : temperature < 10 ? ' cold' : '');
+
+    const badge = document.getElementById('sBadge');
+    const msg = document.getElementById('msgBox');
+    const clipTag = document.getElementById('clipTag');
+    let isBad=false, isWarn=false;
+
+    if (clip.clipTop && clip.clipBot){
+      badge.textContent='严重失真'; badge.className='badge bad';
+      msg.innerHTML=`⚠️ 动态工作点两端都撞边界：顶部(截止) + 底部(饱和) 同时削平`;
+      msg.className='msg bad'; clipTag.textContent='双向削波';
+      isBad=true;
+    } else if (clip.clipBot){
+      badge.textContent='饱和失真'; badge.className='badge bad';
+      msg.innerHTML=`⚠️ <b>饱和失真</b>：动态最高端撞到 <b>饱和边界轨迹</b>（与交流负载线的交点），i<sub>C</sub> 被钳在此点（<b>饱和限流</b>）→ <b>输出波形底部被削平</b>`;
+      msg.className='msg bad'; clipTag.textContent='底部削平';
+      isBad=true;
+    } else if (clip.clipTop){
+      badge.textContent='截止失真'; badge.className='badge bad';
+      msg.innerHTML=`⚠️ <b>截止失真</b>：i<sub>B</sub>≈0 使 i<sub>C</sub>≈0，动态最低端停在 i<sub>C</sub>=0 轴 → <b>输出波形顶部被削平</b>`;
+      msg.className='msg bad'; clipTag.textContent='顶部削平';
+      isBad=true;
+    } else {
+      const vceTop = dynEnds.vceTop;
+      const icBot = dynEnds.icBot;
+      const headroomTop = vceTop - VCE_SAT;
+      const headroomBot = icBot;
+
+      if (headroomTop < 0.3 && headroomBot < 0.3){
+        badge.textContent='接近双边界'; badge.className='badge warn';
+        msg.innerHTML=`⚠️ Q点同时靠近截止与饱和边界`;
+        msg.className='msg warn'; clipTag.textContent='临界';
+        isWarn=true;
+      } else if (headroomTop < 0.3){
+        badge.textContent='接近饱和'; badge.className='badge warn';
+        msg.innerHTML=`⚠️ 动态最高端接近饱和边界轨迹，温度继续升高 → 底部将被削平`;
+        msg.className='msg warn'; clipTag.textContent='接近饱和';
+        isWarn=true;
+      } else if (headroomBot < 0.3){
+        badge.textContent='接近截止'; badge.className='badge warn';
+        msg.innerHTML=`⚠️ 动态最低端接近 i<sub>C</sub>=0，温度继续降低 → 顶部将被削平`;
+        msg.className='msg warn'; clipTag.textContent='接近截止';
+        isWarn=true;
+      } else {
+        badge.textContent='放大区'; badge.className='badge good';
+        msg.innerHTML = `✅ 线性放大正常，输出 ±${(clip.voAmp).toFixed(2)}V`;
+        msg.className='msg good'; clipTag.textContent='无削波';
+      }
+    }
+
+    if (critSat && !isBad) {
+      const baseMsg = msg.innerHTML;
+      msg.innerHTML = baseMsg + `<br><span style="color:#8E6DB5; font-size:0.9rem;">⚠️ 动态最高端已达 <b>临界饱和曲线 iB=${critSat.ib}μA</b>，接近拐点</span>`;
+      if (!isWarn && !isBad) {
+        msg.className = 'msg warn';
+        badge.textContent = '接近饱和';
+        badge.className = 'badge warn';
+        clipTag.textContent = '临界饱和';
+      }
+    }
+
+    outCv.style.border = isBad ? '2px solid #FFB3BA' :
+                          isWarn ? '2px solid #FFE2A8' :
+                                   '2px solid #A8E6CF';
+
+    let concl = '';
+    const icq = q.ic;
+    if (temperature > 45) {
+      concl = `<b>🔥 高温 (${temperature.toFixed(0)}°C)：</b>
+               i<sub>CQ</sub> = <span class="kv">${icq.toFixed(2)} mA</span> ↑
+               → Q 点沿<b>直流负载线</b>下移 → 动态最高端撞到 <b>饱和边界轨迹</b>（拐点连线）与交流负载线的交点 →
+               i<sub>C</sub> 被钳在此交点（<b>饱和限流</b>）→ <b>输出波形底部削平（饱和失真）</b>`;
+    } else if (temperature < 10) {
+      concl = `<b>❄️ 低温 (${temperature.toFixed(0)}°C)：</b>
+               i<sub>CQ</sub> = <span class="kv">${icq.toFixed(2)} mA</span> ↓
+               → Q 点沿<b>直流负载线</b>上移 → 动态最低端 i<sub>B</sub>≈0 使 i<sub>C</sub>≈0，被钳在 i<sub>C</sub>=0 轴 →
+               <b>输出波形顶部削平（截止失真）</b>`;
+    } else {
+      concl = `<b>🌤️ 常温 (${temperature.toFixed(0)}°C)：</b>
+               Q 点位于交流负载线对称中心 <b>v<sub>CEQ</sub>=${VCEQ_0.toFixed(2)}V, i<sub>CQ</sub>=${ICQ_0.toFixed(2)}mA</b>，
+               最大不失真输出 ±${VOM_MAX.toFixed(2)}V；当前输入 52mV 对应输出 ±${(clip.voAmp).toFixed(2)}V，<b>线性放大状态稳定</b>。`;
+    }
+    document.getElementById('conclusionText').innerHTML = concl + 
+      '<br><br><b>→ 固定偏置电路无法稳定 Q 点，温度漂移必然使动态工作点轨迹撞边界，必须引入分压式偏置 + 射极电阻等负反馈措施。</b>';
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawAxes();
+    drawRefVce03();
+    drawCurves();
+    drawKneeCurve();
+
+    const q = getQ();
+    const {Av} = getGain();
+    const deltaIc = (VI_AMPLITUDE * Av) / RC;
+
+    const dynEnds = computeDynamicEnds(q, deltaIc);
+
+    const critSat = findCriticalSatCurve(q, dynEnds);
+    if (critSat) drawCriticalSatCurve(critSat);
+
+    drawDC();
+    drawAC(q);
+    drawDynamicTrace(q, dynEnds);
+    drawQ(q);
+
+    drawInputWave();
+    const clip = drawOutputWave(q, dynEnds);
+    updateUI(q, clip, critSat, dynEnds);
+  }
+
+  function setTemperature(T){
+    temperature = Math.max(0, Math.min(70, T));
+    icQ = icqFromTemp(temperature);
+    document.getElementById('tempSlider').value = temperature;
+    draw();
+  }
+
+  const tempSlider = document.getElementById('tempSlider');
+  tempSlider.addEventListener('input', e => {
+    stopSweep();
+    setTemperature(parseFloat(e.target.value));
+  });
+
+  document.getElementById('btnCold').addEventListener('click', () => {
+    stopSweep();
+    setTemperature(temperature - 10);
+  });
+
+  document.getElementById('btnHot').addEventListener('click', () => {
+    stopSweep();
+    setTemperature(temperature + 10);
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    stopSweep();
+    setTemperature(25);
+  });
+
+  function stopSweep(){
+    if (sweepTimer){
+      clearInterval(sweepTimer);
+      sweepTimer = null;
+      document.getElementById('btnSweep').textContent = '▶ 自动扫描温度';
+    }
+  }
+
+  document.getElementById('btnSweep').addEventListener('click', () => {
+    if (sweepTimer){
+      stopSweep();
+      return;
+    }
+    document.getElementById('btnSweep').textContent = '⏸ 暂停扫描';
+    sweepTimer = setInterval(() => {
+      temperature += sweepDir * 0.6;
+      if (temperature > 70){ temperature = 70; sweepDir = -1; }
+      if (temperature < 0){ temperature = 0; sweepDir = 1; }
+      icQ = icqFromTemp(temperature);
+      document.getElementById('tempSlider').value = temperature;
+      draw();
+    }, 60);
+  });
+
+  setTemperature(25);
+})();
+</script>
+</body>
+</html>
